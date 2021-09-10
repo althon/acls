@@ -83,3 +83,48 @@ func main(){
     fmt.Println(cls.Value("paragraph")) //result: Dear:......
 }
 ```
+
+#'/' of strings usage example
+````
+#config file
+#use  
+text1:`  /
+This is a description document. Please pay attention to the following points:
+1.test test test /
+test2 test3 test4
+2.day day day /
+"day" 'day'
+`
+text2:"This is a description document. Please pay attention to the following points:
+1.test test test /
+test2 test3 test4
+2.day day day /
+\"day\" 'day'"
+text3:'This is a description document. Please pay attention to the following points:
+1.test test test /
+test2 test3 test4
+2.day day day /
+"day" \'day\''
+````
+````go
+func main() {
+    o:=acls.FromFile(config file)
+    
+    fmt.Println(o.Value("text1"))
+    fmt.Println(o.Value("text2"))
+    fmt.Println(o.Value("text3"))
+}
+````
+````
+result:
+  This is a description document. Please pay attention to the following points:
+1.test test test test2 test3 test4
+2.day day day "day" 'day'
+  This is a description document. Please pay attention to the following points:
+1.test test test test2 test3 test4
+2.day day day "day" 'day'
+   This is a description document. Please pay attention to the following points:
+1.test test test test2 test3 test4
+2.day day day "day" 'day'
+	
+````

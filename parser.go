@@ -87,7 +87,7 @@ func parse_object(main_level int,start int, end int,buf []byte) (interface{},int
 				panic(fmt.Sprintf("wrong field definition,near in '%s'",buf[pos:pos+10]))
 			}
 		case '-': //列表的下一个元素
-		    if level>main_level{
+		    if level+2>main_level{
 				panic(fmt.Sprintf("level is not different,near in '%s...'",buf[pos:pos+10]))
 			}else if level==0{
 				panic(fmt.Sprintf("There must be at least one space before '-',near in '%s...'",buf[start:pos+10]))
@@ -115,8 +115,12 @@ func parse_object(main_level int,start int, end int,buf []byte) (interface{},int
 		}
 
 	}
-
-	return result,pos-level-is_r
+	if is_eof==1{ //It's list
+		is_eof = 2
+	}else{
+		is_eof=0
+	}
+	return result,pos-level-is_r-is_eof
 }
 
 func parse_value(main_level int,start int,end int, buf []byte) (interface{},int){
@@ -156,6 +160,13 @@ func parse_value(main_level int,start int,end int, buf []byte) (interface{},int)
 			}else{//key之后是换行符
 				level=0
 				is_line = 1
+			}
+		case '#':
+			if value_start_pos==-1{
+				pos = skin_notes(pos,buf)
+				if level!=0{
+					level=0
+				}
 			}
 		default:
 			if level == 0 && is_line==1{ //换行了，但层级是0
@@ -234,7 +245,8 @@ func parse_value_to_string(start int,end int,para int, quot byte,buf []byte) (st
 		}
 	}
 	if is_eof!=0{ //没有换行符时，检测是否字符串结束
-		return string(buf[start:is_eof]),i
+		text.Write(buf[start:is_eof])
+		return text.String(),i
 	}
 	return "",-1
 }
@@ -371,7 +383,7 @@ func parse_value_to_list(main_level int,start int, buf []byte) (interface{},int)
 		}
 	}
 
-	return nil,-1
+	return result,i
 }
 
 func skin_white(offset int,buf []byte) int{
