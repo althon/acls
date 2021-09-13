@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+
 type Acls map[string]interface{}
 
 func (p Acls) Value(key string) interface{}{
@@ -39,6 +40,9 @@ func (p Acls) Value(key string) interface{}{
 				index = -1
 			}else{
 				if aa,ok:=a.(map[string]interface{});ok{
+					if i==size-1{
+						return aa
+					}
 					acls = aa
 				}else{
 					if i==size-1{

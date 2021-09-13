@@ -5,6 +5,7 @@ Config is a file configuration loader for golang
  * Can be converted to json string
  * Case sensitive
  * Support comments lines
+ * Support reference block
 # config file example
 ```
 #example 1
@@ -127,4 +128,36 @@ result:
 1.test test test test2 test3 test4
 2.day day day "day" 'day'
 	
+````
+# '$variable','&variable' Reference block
+````
+#config file 
+test1: $a "this is a test"
+test2: $b 123
+test3: $c
+  - 1
+  - 2
+  - true
+test4: $d
+  name: althon
+  age: 18
+  money:&b
+test5: &a
+test6:&c
+test7:&d
+````
+````go
+func main() {
+    o:=acls.FromFile(config file)
+    
+    fmt.Println(o.Value("&a"))
+    fmt.Println(o.Value("test4"))
+    fmt.Println(o.Value("test6"))
+}
+````
+````
+result:
+this is a test
+map[name:althon age:18 money:123]
+[1 2 true]
 ````

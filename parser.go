@@ -18,20 +18,36 @@ func Marshal(ptr interface{}) ([]byte,error){
 
 func Unmarshal(data []byte, ptr interface{}) error{
 	value:=reflect.ValueOf(ptr)
-	object,_:=parse_object(0,0,0,data)
+	variable :=make(map[string]interface{})
+	object,_:=parse_object(variable,0,0,0,data)
+
+	o:=object.(map[string]interface{})
+	for k,v:=range variable{
+		o[k] = v
+	}
+
 	return set_object(&value,object)
 }
 
 
 func ToAcls(data []byte) Acls{
-	value,_:=parse_object(0,0,0,data)
-	return value.(map[string]interface{})
+	variable := make(map[string]interface{})
+	object,_:=parse_object(variable,0,0,0,data)
+	o:=object.(map[string]interface{})
+	for k,v:=range variable{
+		o[k] = v
+	}
+	return o
 }
 
 func ToJson(data []byte) ([]byte,error){
-	object,_:=parse_object(0,0,0,data)
+	variable :=make(map[string]interface{})
+	object,_:=parse_object(variable,0,0,0,data)
 	if m,ok:= object.(map[string]interface{});ok{
 		if m!=nil{
+			for k,v:=range m{
+				m[k] = v
+			}
 			return json.Marshal(m)
 		}
 	}
@@ -45,7 +61,7 @@ func FromFile(filepath string) Acls{
 	}
 	return ToAcls(bytes.TrimPrefix(data,[]byte{239, 187, 191}))
 }
-func parse_object(main_level int,start int, end int,buf []byte) (interface{},int){
+func parse_object(variable map[string]interface{}, main_level int,start int, end int,buf []byte) (interface{},int){
 	var (
 		filed_start = -1
 		pos = start
@@ -66,6 +82,7 @@ func parse_object(main_level int,start int, end int,buf []byte) (interface{},int
 		switch buf[pos] {
 		case '#':
 			pos = skin_notes(pos+1,buf) //跳过
+			level=0
 		case ' ':
 			level++
 		case ':':
@@ -76,7 +93,7 @@ func parse_object(main_level int,start int, end int,buf []byte) (interface{},int
 			if result==nil{
 				result = make(map[string]interface{})
 			}
-			key,value,pos = parse_element(level,filed_start,pos,buf)
+			key,value,pos = parse_element(variable,level,filed_start,pos,buf)
 			result.(map[string]interface{})[key]=value
 			filed_start,level = -1,0
 			key,value="",nil
@@ -123,7 +140,7 @@ func parse_object(main_level int,start int, end int,buf []byte) (interface{},int
 	return result,pos-level-is_r-is_eof
 }
 
-func parse_value(main_level int,start int,end int, buf []byte) (interface{},int){
+func parse_value(variable map[string]interface{},main_level int,start int,end int, buf []byte) (interface{},int){
 	var(
 		pos = start
 		value_start_pos = -1 //'`'段落类型专用
@@ -143,17 +160,17 @@ func parse_value(main_level int,start int,end int, buf []byte) (interface{},int)
 			value,pos:=parse_value_to_string(pos+1,end,value_start_pos,buf[pos],buf)
 			return value,pos
 		case '['://array type
-			return parse_value_to_array(main_level,pos + 1,0,buf)
+			return parse_value_to_array(variable,main_level,pos + 1,0,buf)
 		case '-'://list type
 		    if level==0{
 		    	panic(fmt.Sprintf("There must be at least one space before '-',near in '%s...'",buf[start:pos+10]))
 			}
-			return parse_value_to_list(level,pos ,buf)
+			return parse_value_to_list(variable,level,pos ,buf)
 		case '\r':
 			is_r=1
 		case ':':
 			//var value interface{}
-			return parse_object(level,value_start_pos,0,buf)
+			return parse_object(variable ,level,value_start_pos,0,buf)
 		case '\n'://value type
 			if value_start_pos!=-1 {
 				return parse_value_to_valueType(value_start_pos,pos-is_r,buf),pos - is_r - 1
@@ -179,13 +196,61 @@ func parse_value(main_level int,start int,end int, buf []byte) (interface{},int)
 		}
 		pos++
 	}
-	value := parse_value_to_valueType(start,end,buf)
-	return  value,end-is_r
+	return  parse_value_to_valueType(start,end,buf),end-is_r
 }
-func parse_element(main_level int,start int, split_pos int,buf []byte) (string,interface{},int){
-	key := get_key(start,split_pos,buf)
-	value,end:=parse_value(main_level,split_pos+1,0,buf)
+func parse_element(variable map[string]interface{},main_level int,start int, split_pos int,buf []byte) (string,interface{},int){
+	var value interface{}
+	alias:=""
+	key,end := get_key(start,split_pos,buf),0
+	alias,end = parse_variable(main_level,split_pos+1,buf)
+	if end==0 || alias[0]!='$'{
+		end = split_pos+1
+		alias=""
+	}else{
+		alias="&" + alias[1:]
+	}
+	value,end = parse_value(variable,main_level,end,0,buf)
+	if len(alias)>0{
+		variable[alias]=value
+	}else if var_name,ok:=value.(string);ok{
+		if var_name[0]=='&'{
+			if value,_ = variable[var_name];value==nil{
+				panic("unavailable variable:" + var_name)
+			}
+		}
+	}
 	return key,value,end
+}
+
+func parse_variable(main_level,start int,buf []byte) (string,int){
+	p:=  find_index_byte(start,buf,'$')
+	if p!=-1{
+		i,is_r,pos:=start,0,-1
+		for ;i< len(buf);i++{
+			if buf[i]=='$'{
+				if i!=p{
+					break
+				}
+			}
+			switch buf[i] {
+			case ' ':
+				if pos!=-1{
+					return string(buf[pos:i]),i
+				}
+			case '\r':
+				is_r=1
+			case '\n':
+				if pos!=-1{
+					return string(buf[pos:i-is_r]),i
+				}
+			default:
+				if pos==-1{
+					pos=i
+				}
+			}
+		}
+	}
+    return "",0
 }
 
 func parse_value_to_string(start int,end int,para int, quot byte,buf []byte) (string,int){
@@ -277,11 +342,10 @@ func parse_value_to_valueType(start int,end int, buf []byte) interface{}{
 		default:
 			return str
 		}
-		//return str
 	}
 }
 
-func parse_value_to_array(main_level int, start int,end int, buf []byte) (interface{},int){
+func parse_value_to_array(variable map[string]interface{},main_level int, start int,end int, buf []byte) (interface{},int){
 	start = skin_white(start,buf)
 	var (
 		i = start
@@ -302,8 +366,18 @@ func parse_value_to_array(main_level int, start int,end int, buf []byte) (interf
 	for ;i<=end;i++{
 		switch buf[i] {
 		case ',':
-			if value,pos:=parse_value(main_level,start,i,buf);pos!=-1{
-				slice= append(slice, value)
+			if value,pos:=parse_value(variable,main_level,start,i,buf);pos!=-1{
+				if var_name,ok:=value.(string);ok{
+					if var_name[0]=='&'{
+						if value,_ = variable[var_name];value==nil{
+							panic("unavailable variable:" + var_name)
+						}else{
+							slice= append(slice, value.([]interface{})...)
+						}
+					}
+				}else{
+					slice= append(slice, value)
+				}
 				i=skin_white(i+1,buf)
 				if buf[i]==']'{
 					panic(fmt.Sprintf("range index error,near in '%s'",buf[start:i+1]))
@@ -321,8 +395,18 @@ func parse_value_to_array(main_level int, start int,end int, buf []byte) (interf
 			//is_r = 0
 		case ']'://结束
 		    if start!=i{
-				if value,pos:=parse_value(main_level,start,i,buf);pos!=-1{
-					slice= append(slice, value)
+				if value,pos:=parse_value(variable,main_level,start,i,buf);pos!=-1{
+					if var_name,ok:=value.(string);ok{
+						if var_name[0]=='&'{
+							if value,_ = variable[var_name];value==nil{
+								panic("unavailable variable:" + var_name)
+							}else{
+								slice= append(slice, value.([]interface{})...)
+							}
+						}
+					}else{
+						slice= append(slice, value)
+					}
 					//i=skin_white(i+1,buf)-1
 				}
 			}
@@ -340,7 +424,7 @@ func parse_value_to_array(main_level int, start int,end int, buf []byte) (interf
 	return slice,i
 }
 
-func parse_value_to_list(main_level int,start int, buf []byte) (interface{},int){
+func parse_value_to_list(variable map[string]interface{},main_level int,start int, buf []byte) (interface{},int){
 	var value interface{}
 	i,size,end,is_ele,level:=start,len(buf),0,0,main_level
 	var result []interface{}
@@ -368,23 +452,34 @@ func parse_value_to_list(main_level int,start int, buf []byte) (interface{},int)
 				//if value,end=parse_object2(level,start,0,buf);end==-1{
 				//	panic(fmt.Sprintf("cannot get element, near in '%s'",string(buf[start:start+10])))
 				//}
-				if value,end=parse_value(level + 2,start,0,buf);end==-1{ //level + 2  除了‘-’前面的空格 还包含了”-“自身和后面的一个空格即”- “
+				if value,end=parse_value(variable,level + 2,start,0,buf);end==-1{ //level + 2  除了‘-’前面的空格 还包含了”-“自身和后面的一个空格即”- “
 					panic(fmt.Sprintf("cannot get element, near in '%s'",string(buf[start:start+10])))
 				}
-				result = append(result,value)
+				if var_name,ok:=value.(string);ok{
+					if var_name[0]=='&'{
+						if value,_ = variable[var_name];value==nil{
+							panic("unavailable variable:" + var_name)
+						}else{
+							result= append(result, value.([]interface{})...)
+						}
+					}
+				}else{
+					result = append(result,value)
+				}
 				i,is_ele,end,level,value = end,0, 0,0, nil
 			}else if is_ele == 0{
 				level++
 			}
 		default:
 			if level != main_level{
-				return result ,i-1
+				return result ,i-1-level
 			}
 		}
 	}
 
 	return result,i
 }
+
 
 func skin_white(offset int,buf []byte) int{
 	size,i:=len(buf),offset
@@ -449,6 +544,15 @@ func get_key(start int,end int, buf []byte) string{
 	}
 
 	return ""
+}
+
+func find_index_byte(offset int,data []byte,sep byte) int{
+	for i:=offset;i< len(data);i++{
+		if data[i]==sep{
+			return i
+		}
+	}
+	return -1
 }
 
 //reflect.ValueOf(a) 获取的是a的非指针值类型
@@ -666,7 +770,7 @@ func set_object(value *reflect.Value,object interface{}) error{
 }
 
 
-func set_struct(value *reflect.Value,object Acls) error{
+func set_struct(value *reflect.Value,object map[string]interface{}) error{
 	size:=value.NumField()
 	for i:=0;i<size;i++ {
 		field := value.Type().Field(i)
@@ -700,7 +804,7 @@ func set_list(value *reflect.Value,object []interface{}) error{
 	return nil
 }
 
-func set_map(value *reflect.Value,object Acls) error{
+func set_map(value *reflect.Value,object map[string]interface{}) error{
 	var ro reflect.Value
 	vm := reflect.MakeMap(value.Type())
 
