@@ -675,6 +675,8 @@ func format_struct(level int ,value *reflect.Value) ([]byte,error) {
 
 		if len(key) == 0 {
 			key = field.Name
+		}else if key[0]=='-'{
+			continue
 		}
 		buf.WriteString(fmt.Sprintf("%s%s:",strings.Repeat(" ",level),key))
 
@@ -779,6 +781,8 @@ func set_struct(value *reflect.Value,object map[string]interface{}) error{
 
 		if len(key) == 0 {
 			key = field.Name
+		}else if key[0]=='-'{
+			continue
 		}
 
 		if o,ok:=object[key];ok{
