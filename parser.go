@@ -814,11 +814,14 @@ func set_map(value *reflect.Value,object map[string]interface{}) error{
 
 	for k, o := range object {
 		rk:=reflect.ValueOf(k)
-		ro = reflect.New(value.Type().Elem()).Elem()
-		//if value.Type().Elem().Kind()!=reflect.Ptr{
-		//	ro = oo.Elem()
-		//}
-		set_object(&ro,o)
+		if value.Type().Elem().Kind()==reflect.Interface{
+			ro = reflect.ValueOf(o)
+		}else{
+			ro = reflect.New(value.Type().Elem()).Elem()
+			if err:=set_object(&ro,o);err!=nil{
+				panic(fmt.Sprintf("%s=%+v %s",k,o,err.Error()))
+			}
+		}
 		vm.SetMapIndex(rk,ro)
 	}
 
