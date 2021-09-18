@@ -93,6 +93,7 @@ func parse_object(variable map[string]interface{}, main_level int,start int, end
 			if result==nil{
 				result = make(map[string]interface{})
 			}
+
 			key,value,pos = parse_element(variable,level,filed_start,pos,buf)
 			result.(map[string]interface{})[key]=value
 			filed_start,level = -1,0
@@ -579,7 +580,7 @@ func format_object(level int,value *reflect.Value,line bool) ([]byte,error){
 			return []byte("null"),nil
 		}else{
 			e:=value.Elem()
-			return format_object(level*2, &e,line)
+			return format_object(level+2, &e,line)
 		}
 	case reflect.Struct://结构
 		if level>0{
@@ -594,7 +595,7 @@ func format_object(level int,value *reflect.Value,line bool) ([]byte,error){
 
 			}
 		}
-		return format_struct(level*2,value)
+		return format_struct(level+2,value)
 	case reflect.Map://键值
 		return format_map(level,value)
 	case reflect.Invalid://空值
@@ -617,6 +618,9 @@ func format_map(level int,value *reflect.Value) ([]byte,error){
 				return nil,errors.New("marshal map fail,key must be a string type")
 			}
 			k:=valueOfKeys[i].String()
+			if k[0]=='&'{
+				continue
+			}
 			buf.WriteString(fmt.Sprintf("%s%s:",strings.Repeat(" ",level),k))
 
 			v:=value.MapIndex(valueOfKeys[i])
@@ -676,6 +680,8 @@ func format_struct(level int ,value *reflect.Value) ([]byte,error) {
 		if len(key) == 0 {
 			key = field.Name
 		}else if key[0]=='-'{
+			continue
+		}else if key[0]=='&'{
 			continue
 		}
 		buf.WriteString(fmt.Sprintf("%s%s:",strings.Repeat(" ",level),key))
@@ -765,6 +771,8 @@ func set_object(value *reflect.Value,object interface{}) error{
 		if object!=nil{
 			set_map(value,object.(map[string]interface{}))
 		}
+	case reflect.Interface:
+		value.Set(reflect.ValueOf(object))
 	default:
 		return errors.New(errors.New("unknown value kind:"+value.Kind().String()).Error())
 	}
