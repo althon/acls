@@ -404,6 +404,7 @@ func parse_value_to_array(variable map[string]interface{},main_level int, start 
 							}else{
 								slice= append(slice, value.([]interface{})...)
 							}
+							slice= append(slice, value)
 						}
 					}else{
 						slice= append(slice, value)
