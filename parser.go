@@ -579,7 +579,7 @@ func format_object(level int,value *reflect.Value,line bool) ([]byte,error){
 	case reflect.Bool:
 		return []byte(fmt.Sprintf("%v",value.Bool())),nil
 	case reflect.String:
-		return []byte(fmt.Sprintf("\"%s\"",value.String())) ,nil
+		return []byte(fmt.Sprintf("`%s`",value.String())) ,nil
 	case reflect.Array://静态数组
 		fallthrough
 	case reflect.Slice://动态数组(切片)
