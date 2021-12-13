@@ -369,14 +369,16 @@ func parse_value_to_array(variable map[string]interface{},main_level int, start 
 		case ',':
 			if value,pos:=parse_value(variable,main_level,start,i,buf);pos!=-1{
 				if var_name,ok:=value.(string);ok{
-					if var_name[0]=='&'{
-						if value,_ = variable[var_name];value==nil{
-							panic("unavailable variable:" + var_name)
+					if len(var_name)>0{
+						if var_name[0]=='&'{
+							if value,_ = variable[var_name];value==nil{
+								panic("unavailable variable:" + var_name)
+							}else{
+								slice= append(slice, value.([]interface{})...)
+							}
 						}else{
-							slice= append(slice, value.([]interface{})...)
+							slice= append(slice, value)
 						}
-					}else{
-						slice= append(slice, value)
 					}
 				}else{
 					slice= append(slice, value)
@@ -400,14 +402,16 @@ func parse_value_to_array(variable map[string]interface{},main_level int, start 
 		    if start!=i{
 				if value,pos:=parse_value(variable,main_level,start,i,buf);pos!=-1{
 					if var_name,ok:=value.(string);ok{
-						if var_name[0]=='&'{
-							if value,_ = variable[var_name];value==nil{
-								panic("unavailable variable:" + var_name)
+						if len(var_name)>0{
+							if var_name[0]=='&'{
+								if value,_ = variable[var_name];value==nil{
+									panic("unavailable variable:" + var_name)
+								}else{
+									slice= append(slice, value.([]interface{})...)
+								}
 							}else{
-								slice= append(slice, value.([]interface{})...)
+								slice= append(slice, value)
 							}
-						}else{
-							slice= append(slice, value)
 						}
 
 					}else{
