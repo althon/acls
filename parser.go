@@ -472,6 +472,8 @@ func parse_value_to_list(variable map[string]interface{},main_level int,start in
 						}else{
 							result= append(result, value.([]interface{})...)
 						}
+					}else{
+						result = append(result,value)
 					}
 				}else{
 					result = append(result,value)
@@ -660,7 +662,7 @@ func format_list(level int,value *reflect.Value) ([]byte,error){
 			if data,err:=format_object(level*2, &valueOf,false);err!=nil{
 				return nil,errors.New("marshal list fail")
 			}else{
-				buf.WriteString(fmt.Sprintf("%s- ",strings.Repeat(" ",level)))
+				buf.WriteString(fmt.Sprintf("%s- ",strings.Repeat(" ",level+1)))
 				if level*2< len(data){
 					buf.Write(data[level*2:])
 				}else{
