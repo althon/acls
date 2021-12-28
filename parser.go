@@ -662,7 +662,11 @@ func format_list(level int,value *reflect.Value) ([]byte,error){
 			if data,err:=format_object(level*2, &valueOf,false);err!=nil{
 				return nil,errors.New("marshal list fail")
 			}else{
-				buf.WriteString(fmt.Sprintf("%s- ",strings.Repeat(" ",level+1)))
+				l:=level
+				if l==0{
+					l=2
+				}
+				buf.WriteString(fmt.Sprintf("%s- ",strings.Repeat(" ",l)))
 				if level*2< len(data){
 					buf.Write(data[level*2:])
 				}else{
