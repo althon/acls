@@ -215,8 +215,8 @@ func parse_element(variable map[string]interface{},main_level int,start int, spl
 		variable[alias]=value
 	}else if var_name,ok:=value.(string);ok{
 		if len(var_name)>0 && var_name[0]=='&'{
-			if value,_ = variable[var_name];value==nil{
-				panic("unavailable variable:" + var_name)
+			if val,_ := variable[var_name];val!=nil{
+				value=val
 			}
 		}
 	}
